@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stx.meimo.data.model.CategoryDto
 import com.stx.meimo.data.model.RoleCardDto
 import com.stx.meimo.data.repository.RoleRepository
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +47,11 @@ data class HomeState(
 class HomeViewModel(
     private val roleRepository: RoleRepository
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "HomeVM"
+        private const val PAGE_SIZE = 20
+    }
 
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
@@ -122,6 +128,8 @@ class HomeViewModel(
         // API only reliably supports single categoryId; multi-select uses client-side filtering
         val apiCategoryIds = if (selectedIds.size == 1) selectedIds.toList() else emptyList()
 
+        Log.d(TAG, "loadRoles: refresh=$refresh, tab=${current.selectedTab}, startPage=$startPage, hasMore=${current.hasMore}")
+
         _state.update {
             if (refresh) it.copy(isLoading = true, error = null)
             else it.copy(isLoadingMore = true)
@@ -137,27 +145,32 @@ class HomeViewModel(
             for (attempt in 1..maxPages) {
                 val result = when (current.selectedTab) {
                     HomeTab.RANKING -> roleRepository.getHotRoles(
-                        page = currentPage, categoryIds = apiCategoryIds, dayNum = current.rankingPeriod.dayNum
+                        page = currentPage, size = PAGE_SIZE, categoryIds = apiCategoryIds, dayNum = current.rankingPeriod.dayNum
                     )
                     HomeTab.RECOMMEND -> roleRepository.getRecommendedRoles(
-                        page = currentPage, categoryIds = apiCategoryIds
+                        page = currentPage, size = PAGE_SIZE, categoryIds = apiCategoryIds
                     )
                     HomeTab.HOT -> roleRepository.getHotRoles(
-                        page = currentPage, categoryIds = apiCategoryIds
+                        page = currentPage, size = PAGE_SIZE, categoryIds = apiCategoryIds
                     )
                     HomeTab.NEW -> roleRepository.getRoleList(
-                        page = currentPage, categoryIds = apiCategoryIds
+                        page = currentPage, size = PAGE_SIZE, categoryIds = apiCategoryIds
                     )
                 }
 
                 val pagedData = result.getOrElse { e ->
+                    Log.e(TAG, "loadRoles error: page=$currentPage, error=${e.message}")
                     _state.update {
                         it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "未知错误")
                     }
                     return@launch
                 }
 
-                apiHasMore = pagedData.content.isNotEmpty()
+                val contentSize = pagedData.content.size
+                // hasMore based on whether API returned a full page
+                apiHasMore = contentSize >= PAGE_SIZE
+                Log.d(TAG, "loadRoles: page=$currentPage, contentSize=$contentSize, total=${pagedData.total}, apiHasMore=$apiHasMore")
+
                 var content = pagedData.content
 
                 if (needsClientFilter) {
@@ -179,7 +192,10 @@ class HomeViewModel(
                 val existingIds = if (refresh) emptySet() else state.roles.map { it.id }.toSet()
                 val deduped = allFiltered.filter { it.id !in existingIds }
                 val newRoles = if (refresh) deduped else state.roles + deduped
-                val hasMore = apiHasMore && deduped.isNotEmpty()
+                // hasMore: API had a full page of data, and we got at least some new items
+                // Also keep hasMore=true if API had full page but all were dupes (edge case retry)
+                val hasMore = apiHasMore
+                Log.d(TAG, "loadRoles done: existingCount=${state.roles.size}, fetched=${allFiltered.size}, deduped=${deduped.size}, newTotal=${newRoles.size}, hasMore=$hasMore, nextPage=$currentPage")
                 state.copy(
                     roles = newRoles,
                     page = currentPage,
