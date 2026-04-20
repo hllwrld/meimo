@@ -2,6 +2,7 @@ package com.stx.meimo.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.webkit.CookieManager
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -24,9 +25,11 @@ class PersistentCookieJar(context: Context) : CookieJar {
             existing.add(cookie)
         }
         persistToDisk(host, existing)
+        pushToWebView(url, cookies)
     }
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        pullFromWebView(url)
         val host = url.host
         val cookies = cache[host] ?: return emptyList()
         val now = System.currentTimeMillis() / 1000
@@ -38,9 +41,68 @@ class PersistentCookieJar(context: Context) : CookieJar {
         return valid
     }
 
+    fun syncAllToWebView() {
+        try {
+            val cm = CookieManager.getInstance()
+            for ((host, cookies) in cache) {
+                for (cookie in cookies) {
+                    cm.setCookie(
+                        "https://$host",
+                        "${cookie.name}=${cookie.value}; path=${cookie.path}; domain=${cookie.domain}"
+                    )
+                }
+            }
+            cm.flush()
+        } catch (_: Exception) { }
+    }
+
     fun clear() {
         cache.clear()
         prefs.edit().clear().apply()
+    }
+
+    private fun pullFromWebView(url: HttpUrl) {
+        try {
+            val cookieString = CookieManager.getInstance().getCookie(url.toString()) ?: return
+            val host = url.host
+            val existing = cache.getOrPut(host) { mutableListOf() }
+            var changed = false
+
+            cookieString.split(";").forEach { part ->
+                val trimmed = part.trim()
+                val eqIndex = trimmed.indexOf('=')
+                if (eqIndex > 0) {
+                    val name = trimmed.substring(0, eqIndex)
+                    val value = trimmed.substring(eqIndex + 1)
+                    val current = existing.find { it.name == name }
+                    if (current == null || current.value != value) {
+                        existing.removeAll { it.name == name }
+                        existing.add(
+                            Cookie.Builder()
+                                .name(name)
+                                .value(value)
+                                .domain(host)
+                                .path("/")
+                                .expiresAt(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000)
+                                .build()
+                        )
+                        changed = true
+                    }
+                }
+            }
+            if (changed) persistToDisk(host, existing)
+        } catch (_: Exception) { }
+    }
+
+    private fun pushToWebView(url: HttpUrl, cookies: List<Cookie>) {
+        try {
+            val cm = CookieManager.getInstance()
+            val urlStr = url.toString()
+            for (cookie in cookies) {
+                cm.setCookie(urlStr, "${cookie.name}=${cookie.value}; path=${cookie.path}; domain=${cookie.domain}")
+            }
+            cm.flush()
+        } catch (_: Exception) { }
     }
 
     private fun persistToDisk(host: String, cookies: List<Cookie>) {
@@ -59,7 +121,6 @@ class PersistentCookieJar(context: Context) : CookieJar {
     }
 
     private fun serializeCookie(cookie: Cookie): String {
-        // Format: name=value;domain;path;expiresAt;secure;httpOnly
         return listOf(
             "${cookie.name}=${cookie.value}",
             cookie.domain,

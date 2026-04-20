@@ -47,6 +47,7 @@ fun ChatWebViewScreen(
     DisposableEffect(Unit) {
         ApiLogger.init(context)
         hideImagesEnabled = hideImages
+        com.stx.meimo.di.AppModule.cookieJar.syncAllToWebView()
         onDispose { hideImagesEnabled = false }
     }
 

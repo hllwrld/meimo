@@ -2,6 +2,7 @@ package com.stx.meimo.ui.chatlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.stx.meimo.data.model.ConversationDto
 import com.stx.meimo.data.repository.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,11 +33,14 @@ class ChatListViewModel(
     private fun load() {
         _state.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
+            Log.d("ChatListVM", "Loading conversations...")
             chatRepository.getAllConversations()
                 .onSuccess { conversations ->
+                    Log.d("ChatListVM", "Loaded ${conversations.size} conversations")
                     _state.update { it.copy(conversations = conversations, isLoading = false) }
                 }
                 .onFailure { e ->
+                    Log.e("ChatListVM", "Failed to load conversations", e)
                     _state.update { it.copy(isLoading = false, error = e.message ?: "加载失败") }
                 }
         }

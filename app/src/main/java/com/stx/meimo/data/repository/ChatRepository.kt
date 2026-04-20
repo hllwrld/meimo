@@ -1,5 +1,8 @@
 package com.stx.meimo.data.repository
 
+import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.stx.meimo.data.model.ChatCompletionRequest
 import com.stx.meimo.data.model.ConversationDto
 import com.stx.meimo.data.model.ConversationListRequest
@@ -11,15 +14,35 @@ import com.stx.meimo.data.remote.MeimoApi
 import com.stx.meimo.util.ApiException
 
 class ChatRepository(
-    private val api: MeimoApi
+    private val api: MeimoApi,
+    private val gson: Gson = Gson()
 ) {
 
     suspend fun getAllConversations(page: Int = 1, size: Int = 50): Result<List<ConversationDto>> = runCatching {
-        val response = api.getAllConversations(mapOf("page" to page, "size" to size))
+        val response = api.getAllConversationsRaw(mapOf("page" to page, "size" to size))
         if (response.code != 200 || response.data == null) {
             throw ApiException(response.code, response.message ?: "Failed to get conversations")
         }
-        response.data
+        val data = response.data
+        Log.d("ChatRepo", "getAllConversations raw: isArray=${data.isJsonArray}, isObject=${data.isJsonObject}")
+        val list: List<ConversationDto> = if (data.isJsonArray) {
+            val type = object : TypeToken<List<ConversationDto>>() {}.type
+            gson.fromJson(data, type)
+        } else {
+            val obj = data.asJsonObject
+            val content = obj.getAsJsonArray("content")
+                ?: obj.getAsJsonArray("records")
+                ?: obj.getAsJsonArray("list")
+            if (content != null) {
+                val type = object : TypeToken<List<ConversationDto>>() {}.type
+                gson.fromJson(content, type)
+            } else {
+                Log.e("ChatRepo", "Unknown data format: $data")
+                emptyList()
+            }
+        }
+        Log.d("ChatRepo", "Parsed ${list.size} conversations")
+        list
     }
 
     suspend fun getConversations(roleId: Long): Result<PagedData<ConversationDto>> = runCatching {

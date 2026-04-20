@@ -57,6 +57,9 @@ interface MeimoApi {
     @POST("conversation/list")
     suspend fun getAllConversations(@Body body: @JvmSuppressWildcards Map<String, Any> = mapOf("page" to 1, "size" to 50)): ApiResponse<List<ConversationDto>>
 
+    @POST("conversation/list")
+    suspend fun getAllConversationsRaw(@Body body: @JvmSuppressWildcards Map<String, Any> = mapOf("page" to 1, "size" to 50)): ApiResponse<com.google.gson.JsonElement>
+
     @POST("conversation2/list")
     suspend fun getConversations(@Body request: ConversationListRequest): ApiResponse<PagedData<ConversationDto>>
 

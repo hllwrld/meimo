@@ -138,15 +138,12 @@ fun createMeimoWebView(
                 val url = req.url.toString()
                 val method = req.method ?: "GET"
 
-                // Block images when hide-images is enabled
+                // Block CDN/background images based on current server domain
                 if (hideImagesEnabled) {
                     val lower = url.lowercase()
-                    val accept = req.requestHeaders?.entries
-                        ?.firstOrNull { it.key.equals("Accept", true) }?.value ?: ""
-                    val isImageByExt = IMAGE_EXTENSIONS.any { lower.endsWith(".$it") || lower.contains(".$it?") }
-                    val isImageByAccept = accept.startsWith("image/")
-                    val isImageCdn = lower.contains("r2.sexyai.top") || lower.contains("/uploads/") || lower.contains("/avatar/")
-                    if (isImageByExt || isImageByAccept || isImageCdn) {
+                    val cdnHost = "r2.${com.stx.meimo.util.ServerConfig.currentDomain}".lowercase()
+                    val isCdnImage = lower.contains(cdnHost) || lower.contains("/uploads/")
+                    if (isCdnImage) {
                         return WebResourceResponse(
                             "image/png", "UTF-8",
                             ByteArrayInputStream(GRAY_PIXEL_PNG)
