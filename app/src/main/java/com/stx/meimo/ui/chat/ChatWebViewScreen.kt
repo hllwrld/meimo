@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.stx.meimo.log.ApiLogger
 import com.stx.meimo.ui.component.LocalHideImages
+import com.stx.meimo.util.ServerConfig
 import com.stx.meimo.webview.createMeimoWebView
 import com.stx.meimo.webview.hideImagesEnabled
 
@@ -36,7 +37,7 @@ fun ChatWebViewScreen(
     val hideImages = LocalHideImages.current
     var progress by remember { mutableIntStateOf(0) }
     var webView by remember { mutableStateOf<WebView?>(null) }
-    val chatUrl = "https://sexyai.top/#/pages/chat/chat?roleId=$roleId"
+    val chatUrl = "${ServerConfig.webUrl}/#/pages/chat/chat?roleId=$roleId"
 
     LaunchedEffect(hideImages) {
         hideImagesEnabled = hideImages

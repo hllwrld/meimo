@@ -76,7 +76,8 @@ class ProfileViewModel(
                     _state.update { it.copy(user = user, isLoading = false) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isLoading = false, error = e.message ?: "加载失败") }
+                    authRepository.logout()
+                    _state.update { it.copy(isLoading = false, isLoggedOut = true) }
                 }
         }
     }

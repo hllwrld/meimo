@@ -1,45 +1,65 @@
 package com.stx.meimo.ui.rewards
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stx.meimo.data.remote.TaskDto
 import com.stx.meimo.ui.component.LoadingIndicator
+import com.stx.meimo.util.ServerConfig
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun RewardsScreen(viewModel: RewardsViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showAddDomainDialog by remember { mutableStateOf(false) }
+    var domainToDelete by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.signInMessage) {
         state.signInMessage?.let {
@@ -139,10 +159,130 @@ fun RewardsScreen(viewModel: RewardsViewModel) {
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Server selector
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "服务器",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            IconButton(onClick = { showAddDomainDialog = true }) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "添加自定义域名",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.availableDomains.forEach { domain ->
+                                val selected = domain == state.currentDomain
+                                val isCustom = domain !in ServerConfig.presetDomainList
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { viewModel.switchDomain(domain) },
+                                    label = { Text(domain) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    border = if (selected) BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary
+                                    ) else FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = false
+                                    ),
+                                    modifier = if (isCustom) {
+                                        Modifier.combinedClickable(
+                                            onClick = { viewModel.switchDomain(domain) },
+                                            onLongClick = { domainToDelete = domain }
+                                        )
+                                    } else Modifier
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "切换后 API 立即生效，自定义域名长按可删除",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
         }
+    }
+
+    if (showAddDomainDialog) {
+        var input by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddDomainDialog = false },
+            title = { Text("添加自定义域名") },
+            text = {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("域名") },
+                    placeholder = { Text("example.com") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.addCustomDomain(input)
+                        showAddDomainDialog = false
+                    },
+                    enabled = input.isNotBlank()
+                ) {
+                    Text("保存并切换")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDomainDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    domainToDelete?.let { domain ->
+        AlertDialog(
+            onDismissRequest = { domainToDelete = null },
+            title = { Text("删除域名") },
+            text = { Text("确定删除 $domain？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeCustomDomain(domain)
+                        domainToDelete = null
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { domainToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 

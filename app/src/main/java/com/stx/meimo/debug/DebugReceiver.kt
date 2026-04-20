@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import android.webkit.CookieManager
 import com.stx.meimo.di.AppModule
+import com.stx.meimo.util.ServerConfig
 import com.stx.meimo.util.generateIdempotencyKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +81,7 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun dumpCookies() {
         val cookies = try {
-            CookieManager.getInstance().getCookie("https://sexyai.top")
+            CookieManager.getInstance().getCookie(ServerConfig.webUrl)
         } catch (e: Exception) {
             "ERROR: ${e.message}"
         }
@@ -158,7 +159,7 @@ class DebugReceiver : BroadcastReceiver() {
             try {
                 // Use the app's OkHttpClient which includes AuthInterceptor
                 val request = Request.Builder()
-                    .url("https://sexyai.top/api/$endpoint")
+                    .url("${ServerConfig.apiBaseUrl}$endpoint")
                     .post(body.toRequestBody("application/json".toMediaType()))
                     .build()
 
@@ -230,7 +231,7 @@ class DebugReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val builder = Request.Builder()
-                    .url("https://sexyai.top/api/$endpoint")
+                    .url("${ServerConfig.apiBaseUrl}$endpoint")
                     .post(body.toRequestBody("application/json".toMediaType()))
                     .header("Content-Type", "application/json")
                     .header("Lang", "ZH")
@@ -242,7 +243,7 @@ class DebugReceiver : BroadcastReceiver() {
 
                 // Also add WebView cookies
                 val cookies = try {
-                    CookieManager.getInstance().getCookie("https://sexyai.top")
+                    CookieManager.getInstance().getCookie(ServerConfig.webUrl)
                 } catch (_: Exception) { null }
                 if (!cookies.isNullOrBlank()) {
                     builder.header("Cookie", cookies)

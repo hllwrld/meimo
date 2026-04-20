@@ -32,10 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.stx.meimo.log.ApiLogger
 import com.stx.meimo.ui.component.LocalHideImages
+import com.stx.meimo.util.ServerConfig
 import com.stx.meimo.webview.createMeimoWebView
 import com.stx.meimo.webview.hideImagesEnabled
-
-private const val HOME_URL = "https://sexyai.top"
 
 @Composable
 fun DebugWebViewScreen(onBack: () -> Unit) {
@@ -71,7 +70,7 @@ fun DebugWebViewScreen(onBack: () -> Unit) {
                     onPageStarted = { }
                 ).also { wv ->
                     webView = wv
-                    wv.loadUrl(HOME_URL)
+                    wv.loadUrl(ServerConfig.webUrl)
                 }
             },
             modifier = Modifier.fillMaxSize()

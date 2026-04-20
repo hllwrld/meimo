@@ -27,17 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.stx.meimo.log.ApiLogger
+import com.stx.meimo.util.ServerConfig
 import com.stx.meimo.webview.createMeimoWebView
 import kotlinx.coroutines.launch
-
-private const val HOME_URL = "https://sexyai.top"
 
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
     var progress by remember { mutableIntStateOf(0) }
     var title by remember { mutableStateOf("Meimo") }
-    var currentUrl by remember { mutableStateOf(HOME_URL) }
+    var currentUrl by remember { mutableStateOf(ServerConfig.webUrl) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -87,7 +86,7 @@ fun MainScreen() {
                             }
                         ).also { wv ->
                             webView = wv
-                            wv.loadUrl(HOME_URL)
+                            wv.loadUrl(ServerConfig.webUrl)
                         }
                     },
                     modifier = Modifier.fillMaxSize()

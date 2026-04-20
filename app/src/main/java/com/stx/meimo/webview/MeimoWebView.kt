@@ -59,6 +59,8 @@ private val SKIP_HEADERS = setOf(
 @Volatile
 var hideImagesEnabled = false
 
+private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "gif", "avif", "svg", "bmp", "ico")
+
 private val GRAY_PIXEL_PNG: ByteArray by lazy {
     // 1x1 #BDBDBD PNG
     val bmp = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
@@ -136,10 +138,15 @@ fun createMeimoWebView(
                 val url = req.url.toString()
                 val method = req.method ?: "GET"
 
-                // Block CDN images when hide-images is enabled
-                if (hideImagesEnabled && url.contains("r2.sexyai.top")) {
-                    val ext = url.substringAfterLast('.').lowercase()
-                    if (ext in listOf("jpg", "jpeg", "png", "webp", "gif", "avif", "svg")) {
+                // Block images when hide-images is enabled
+                if (hideImagesEnabled) {
+                    val lower = url.lowercase()
+                    val accept = req.requestHeaders?.entries
+                        ?.firstOrNull { it.key.equals("Accept", true) }?.value ?: ""
+                    val isImageByExt = IMAGE_EXTENSIONS.any { lower.endsWith(".$it") || lower.contains(".$it?") }
+                    val isImageByAccept = accept.startsWith("image/")
+                    val isImageCdn = lower.contains("r2.sexyai.top") || lower.contains("/uploads/") || lower.contains("/avatar/")
+                    if (isImageByExt || isImageByAccept || isImageCdn) {
                         return WebResourceResponse(
                             "image/png", "UTF-8",
                             ByteArrayInputStream(GRAY_PIXEL_PNG)

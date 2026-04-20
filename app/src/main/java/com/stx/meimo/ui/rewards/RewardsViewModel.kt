@@ -6,6 +6,8 @@ import com.stx.meimo.data.model.UserDto
 import com.stx.meimo.data.remote.TaskDto
 import com.stx.meimo.data.repository.AuthRepository
 import com.stx.meimo.data.repository.RewardRepository
+import com.stx.meimo.di.AppModule
+import com.stx.meimo.util.ServerConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +21,9 @@ data class RewardsState(
     val isSigningIn: Boolean = false,
     val signedIn: Boolean = false,
     val error: String? = null,
-    val signInMessage: String? = null
+    val signInMessage: String? = null,
+    val currentDomain: String = ServerConfig.currentDomain,
+    val availableDomains: List<String> = ServerConfig.availableDomains
 )
 
 class RewardsViewModel(
@@ -32,6 +36,24 @@ class RewardsViewModel(
 
     init {
         load()
+    }
+
+    fun switchDomain(domain: String) {
+        ServerConfig.setDomain(domain, AppModule.appPreferences)
+        _state.update { it.copy(currentDomain = domain, availableDomains = ServerConfig.availableDomains) }
+    }
+
+    fun addCustomDomain(domain: String) {
+        val cleaned = domain.trim().lowercase().removePrefix("https://").removePrefix("http://").trimEnd('/')
+        if (cleaned.isBlank() || !cleaned.contains('.')) return
+        ServerConfig.addCustomDomain(cleaned, AppModule.appPreferences)
+        ServerConfig.setDomain(cleaned, AppModule.appPreferences)
+        _state.update { it.copy(currentDomain = cleaned, availableDomains = ServerConfig.availableDomains) }
+    }
+
+    fun removeCustomDomain(domain: String) {
+        ServerConfig.removeCustomDomain(domain, AppModule.appPreferences)
+        _state.update { it.copy(currentDomain = ServerConfig.currentDomain, availableDomains = ServerConfig.availableDomains) }
     }
 
     fun refresh() = load()

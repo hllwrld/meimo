@@ -2,6 +2,7 @@ package com.stx.meimo.di
 
 import android.content.Context
 import com.stx.meimo.data.remote.AuthInterceptor
+import com.stx.meimo.data.remote.DynamicHostInterceptor
 import com.stx.meimo.data.remote.MeimoApi
 import com.stx.meimo.data.remote.SseClient
 import com.stx.meimo.data.repository.AuthRepository
@@ -11,6 +12,7 @@ import com.stx.meimo.data.repository.RewardRepository
 import com.stx.meimo.data.repository.RoleRepository
 import com.stx.meimo.util.AppPreferences
 import com.stx.meimo.util.PersistentCookieJar
+import com.stx.meimo.util.ServerConfig
 import com.stx.meimo.util.TokenStorage
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -19,8 +21,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object AppModule {
-
-    private const val BASE_URL = "https://sexyai.top/api/"
 
     lateinit var tokenStorage: TokenStorage
         private set
@@ -37,6 +37,7 @@ object AppModule {
         }
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
+            .addInterceptor(DynamicHostInterceptor())
             .addInterceptor(AuthInterceptor(tokenStorage))
             .addInterceptor(logging)
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -47,7 +48,7 @@ object AppModule {
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(ServerConfig.apiBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -67,5 +68,6 @@ object AppModule {
         tokenStorage = TokenStorage(context.applicationContext)
         cookieJar = PersistentCookieJar(context.applicationContext)
         appPreferences = AppPreferences(context.applicationContext)
+        ServerConfig.init(appPreferences)
     }
 }
